@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>生徒用：手書き＆みんなの意見</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif; }
+
+        /* 書く画面 */
+        #drawSection { display: flex; flex-direction: column; height: 100vh; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); overflow: hidden; }
+        .header { padding: 12px; text-align: center; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(5px); box-shadow: 0 2px 10px rgba(0,0,0,0.05); z-index: 10; display: flex; justify-content: space-between; align-items: center; }
+        .name-input { padding: 10px 15px; font-size: 16px; width: 60%; max-width: 300px; border: 1px solid #ddd; border-radius: 25px; outline: none; transition: all 0.3s ease; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        .name-input:focus { border-color: #4CAF50; box-shadow: 0 0 5px rgba(76, 175, 80, 0.3); }
+
+        .switch-btn { background-color: #e3f2fd; color: #0d47a1; border: 1px solid #bbdefb; padding: 8px 12px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: 0.2s; display: none; /* 初期状態は非表示（先生の許可待ち） */ }
+        .switch-btn:active { transform: translateY(2px); }
+        
+        .canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; padding: 15px; overflow: hidden; }
+        canvas { background-color: white; border: none; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+        
+        .toolbar { padding: 12px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; background-color: rgba(255, 255, 255, 0.95); border-radius: 20px 20px 0 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.05); }
+        .btn { padding: 8px 14px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; display: inline-flex; align-items: center; justify-content: center; }
+        .btn:active { transform: translateY(2px); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .color-btn { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #ddd; cursor: pointer; padding: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .color-active { border: 3px solid #555 !important; transform: scale(1.1); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        #penBtn { background-color: #e0f7fa; color: #006064; }
+        #eraserBtn { background-color: #fff9c4; color: #f57f17; }
+        #undoBtn { background-color: #ffe0b2; color: #e65100; }
+        #clearBtn { background-color: #ffcdd2; color: #b71c1c; }
+        .photo-label { background-color: #e1bee7; color: #4a148c; padding: 8px 14px; font-size: 14px; font-weight: bold; border-radius: 20px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        .photo-label:active { transform: translateY(2px); }
+        #photoInput { display: none; } 
+        #sendBtn { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; flex-grow: 1; min-width: 100px; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); }
+        .active { border: 2px solid #555 !important; box-shadow: 0 4px 8px rgba(0,0,0,0.15); transform: translateY(-2px); }
+
+        /* ギャラリー画面 */
+        #gallerySection { display: none; padding: 20px; min-height: 100vh; background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); }
+        .gallery-header { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.9); padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .gallery-header h2 { margin: 0; color: #333; font-weight: bold; font-size: 18px;}
+        #gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .student-card { border: none; border-radius: 12px; padding: 12px; box-shadow: 0 6px 15px rgba(0,0,0,0.1); transition: transform 0.2s, box-shadow 0.2s; }
+        .student-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+        .student-card img { width: 100%; border-radius: 8px; cursor: pointer; border: 1px solid #eee; background-color: white; }
+        .card-info { margin-top: 12px; text-align: center; }
+        .name { font-weight: bold; color: #444; font-size: 17px; }
+        
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; flex-direction: column; z-index: 100; }
+        #modal img { max-width: 90%; max-height: 80%; background: white; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #modal .modal-name { color: white; font-size: 26px; font-weight: bold; margin-top: 20px; }
+        #closeModal { margin-top: 20px; padding: 10px 25px; font-size: 16px; font-weight: bold; cursor: pointer; background-color: white; color: #333; border: none; border-radius: 25px; }
+        .loading { text-align: center; color: #fff; font-size: 18px; margin-top: 60px; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+
+    <div id="drawSection">
+        <div class="header">
+            <input type="text" id="nameInput" class="name-input" placeholder="名前またはグループ名を入力">
+            <button id="goToGalleryBtn" class="switch-btn">👀 みんなの意見</button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="myCanvas"></canvas>
+        </div>
+        
+        <div class="toolbar">
+            <button id="colorBlack" class="color-btn color-active" style="background-color: #333;"></button>
+            <button id="colorRed" class="color-btn" style="background-color: #e53935;"></button>
+            <button id="colorBlue" class="color-btn" style="background-color: #1e88e5;"></button>
+
+            <button id="penBtn" class="btn active">ペン</button>
+            <button id="eraserBtn" class="btn">消しゴム</button>
+            <button id="undoBtn" class="btn">１つ戻る</button>
+            <button id="clearBtn" class="btn">全消去</button>
+            
+            <label for="photoInput" class="photo-label">📷 写真</label>
+            <input type="file" id="photoInput" accept="image/*">
+
+            <button id="sendBtn" class="btn">先生に送信</button>
+        </div>
+    </div>
+
+    <div id="gallerySection">
+        <div class="gallery-header">
+            <button id="backToDrawBtn" class="switch-btn" style="display:inline-block;">⬅️ 書く画面に戻る</button>
+            <h2>みんなの意見</h2>
+        </div>
+        <div style="text-align: right; font-size: 14px; color: #333; margin-top: -15px; margin-bottom: 10px;">※画像をタップすると拡大します</div>
+        
+        <div id="loadingMsg" class="loading">クラスの意見を読み込み中...</div>
+        <div id="gallery"></div>
+    </div>
+
+    <div id="modal">
+        <img id="modalImg" src="">
+        <div id="modalName" class="modal-name"></div>
+        <button id="closeModal">閉じる</button>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyDaUwzZgR3sPuE-X6RLha_vcMNn7rfpGFQ",
+          authDomain: "math-app-2211d.firebaseapp.com",
+          projectId: "math-app-2211d",
+          storageBucket: "math-app-2211d.firebasestorage.app",
+          messagingSenderId: "231409267655",
+          appId: "1:231409267655:web:a56a331cc3e800a6be9fe2"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        const drawSection = document.getElementById('drawSection');
+        const gallerySection = document.getElementById('gallerySection');
+        const goToGalleryBtn = document.getElementById('goToGalleryBtn');
+
+        // --- ★新規追加：先生の設定（閲覧許可）を監視する ---
+        db.collection('settings').doc('general').onSnapshot((doc) => {
+            if (doc.exists) {
+                const isGalleryEnabled = doc.data().isGalleryEnabled;
+                
+                if (isGalleryEnabled) {
+                    // 先生がONにした：ボタンを表示する
+                    goToGalleryBtn.style.display = 'inline-block';
+                } else {
+                    // 先生がOFFにした：ボタンを隠す
+                    goToGalleryBtn.style.display = 'none';
+                    
+                    // もし生徒が今ギャラリーを見ている真っ最中だったら、強制的に書く画面に戻す
+                    if (gallerySection.style.display === 'block') {
+                        gallerySection.style.display = 'none';
+                        drawSection.style.display = 'flex';
+                        resizeCanvas();
+                        alert("先生がみんなの意見の閲覧を一時停止しました。");
+                    }
+                }
+            }
+        });
+        // --------------------------------------------------
+
+        goToGalleryBtn.addEventListener('click', () => {
+            drawSection.style.display = 'none'; 
+            gallerySection.style.display = 'block'; 
+        });
+
+        document.getElementById('backToDrawBtn').addEventListener('click', () => {
+            gallerySection.style.display = 'none'; 
+            drawSection.style.display = 'flex'; 
+            resizeCanvas(); 
+        });
+
+
+        /* --- 書く画面（キャンバス）の処理 --- */
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let currentTool = 'pen';
+        let currentColor = '#333';
+        let history = [];
+
+        function resizeCanvas() {
+            const tempImg = canvas.toDataURL();
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (history.length > 0) {
+                const img = new Image();
+                img.src = tempImg;
+                img.onload = () => { ctx.drawImage(img, 0, 0); };
+            } else { saveHistory(); }
+        }
+        window.addEventListener('load', resizeCanvas);
+        window.addEventListener('resize', resizeCanvas);
+
+        function saveHistory() { history.push(canvas.toDataURL()); }
+
+        function getPos(event) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left) * (canvas.width / rect.width),
+                y: (event.clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDrawing(e) {
+            e.preventDefault(); isDrawing = true; canvas.setPointerCapture(e.pointerId);
+            const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault(); const pos = getPos(e);
+            if (currentTool === 'pen') {
+                ctx.globalCompositeOperation = 'source-over'; ctx.lineWidth = 3; ctx.strokeStyle = currentColor;
+            } else {
+                ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = 20;
+            }
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineTo(pos.x, pos.y); ctx.stroke();
+        }
+
+        function stopDrawing(e) {
+            if (isDrawing) { isDrawing = false; canvas.releasePointerCapture(e.pointerId); saveHistory(); }
+        }
+
+        canvas.addEventListener('pointerdown', startDrawing);
+        canvas.addEventListener('pointermove', draw);
+        canvas.addEventListener('pointerup', stopDrawing);
+        canvas.addEventListener('pointercancel', stopDrawing);
+        canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+
+        const penBtn = document.getElementById('penBtn');
+        const eraserBtn = document.getElementById('eraserBtn');
+        
+        function activatePen() { currentTool = 'pen'; penBtn.classList.add('active'); eraserBtn.classList.remove('active'); }
+        penBtn.addEventListener('click', activatePen);
+        eraserBtn.addEventListener('click', () => { currentTool = 'eraser'; eraserBtn.classList.add('active'); penBtn.classList.remove('active'); });
+
+        const colorBlack = document.getElementById('colorBlack'); const colorRed = document.getElementById('colorRed'); const colorBlue = document.getElementById('colorBlue');
+        const colorBtns = [colorBlack, colorRed, colorBlue];
+        function changeColor(btn, color) { currentColor = color; activatePen(); colorBtns.forEach(b => b.classList.remove('color-active')); btn.classList.add('color-active'); }
+
+        colorBlack.addEventListener('click', () => changeColor(colorBlack, '#333'));
+        colorRed.addEventListener('click', () => changeColor(colorRed, '#e53935'));
+        colorBlue.addEventListener('click', () => changeColor(colorBlue, '#1e88e5'));
+
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            if (history.length > 1) {
+                history.pop(); const previousState = history[history.length - 1];
+                const img = new Image(); img.src = previousState;
+                img.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(img, 0, 0); };
+            }
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => { 
+            ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); saveHistory(); 
+        });
+
+        document.getElementById('photoInput').addEventListener('change', function(e) {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    ctx.globalCompositeOperation = 'source-over';
+                    const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+                    const newWidth = img.width * scale; const newHeight = img.height * scale;
+                    const x = (canvas.width - newWidth) / 2; const y = (canvas.height - newHeight) / 2;
+                    ctx.drawImage(img, x, y, newWidth, newHeight); saveHistory();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file); e.target.value = '';
+        });
+
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            const name = document.getElementById('nameInput').value;
+            if (!name) { alert("名前またはグループ名を入力してください！"); return; }
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.textContent = "送信中..."; sendBtn.disabled = true;
+            const imageData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            db.collection("submissions").add({
+                name: name, image: imageData, color: "#ffffff", timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                alert("先生に送信しました！");
+                ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); saveHistory();
+                document.getElementById('nameInput').value = ""; sendBtn.textContent = "先生に送信"; sendBtn.disabled = false;
+            }).catch((error) => { alert("エラーが発生しました: " + error); sendBtn.textContent = "先生に送信"; sendBtn.disabled = false; });
+        });
+
+        /* --- ギャラリーの処理 --- */
+        const gallery = document.getElementById('gallery');
+        const modal = document.getElementById('modal');
+
+        function renderGallery(dataList) {
+            gallery.innerHTML = ''; 
+            if (dataList.length === 0) {
+                document.getElementById('loadingMsg').style.display = 'block'; document.getElementById('loadingMsg').textContent = 'まだ提出物がありません。'; return;
+            }
+            document.getElementById('loadingMsg').style.display = 'none';
+
+            dataList.sort((a, b) => (a.data.timestamp?.toMillis() || 0) - (b.data.timestamp?.toMillis() || 0));
+
+            dataList.forEach(item => {
+                const data = item.data; const bgColor = data.color || '#ffffff';
+                const card = document.createElement('div'); card.className = 'student-card'; card.style.backgroundColor = bgColor; 
+                const img = document.createElement('img'); img.src = data.image;
+                img.addEventListener('click', () => { document.getElementById('modalImg').src = data.image; document.getElementById('modalName').textContent = data.name; modal.style.display = 'flex'; });
+                const infoDiv = document.createElement('div'); infoDiv.className = 'card-info'; infoDiv.innerHTML = `<span class="name">${data.name}</span>`;
+                card.appendChild(img); card.appendChild(infoDiv); gallery.appendChild(card);
+            });
+        }
+
+        document.getElementById('closeModal').addEventListener('click', () => { modal.style.display = 'none'; });
+
+        db.collection("submissions").onSnapshot((snapshot) => {
+            let submissionsData = []; 
+            snapshot.forEach((doc) => { submissionsData.push({ id: doc.id, data: doc.data() }); });
+            renderGallery(submissionsData); 
+        });
+    </script>
+</body>
+</html>
